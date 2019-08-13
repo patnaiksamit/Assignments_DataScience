@@ -1,0 +1,109 @@
+---
+title: "Practical Machine Learning - Project"
+author: "Samit Patnaik"
+date: "13/08/2019"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Read training and testing data from the url(s) provided in the assignment. Assign the url(s) to variable to be able to read the data into csv file
+```{r , cache=TRUE}
+train_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+test_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(url = train_url ,destfile = "training.csv")
+download.file(url = test_url ,destfile = "testing.csv")
+
+```
+# Read training and testing data, identifying “”(empty fields), “NA” and “#DIV/0!” as “NA” everywhere
+``` {r , cache= TRUE }
+train <- read.csv("training.csv",na.strings = c("NA","#DIV/0!",""))
+test <- read.csv("testing.csv",na.strings = c("NA","#DIV/0!",""))
+``` 
+# Load the librariees
+
+```{r}
+library(caret)
+library(ggplot2)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+```
+
+
+# Set aside 40 percent of the training data for cross validation purposes
+```{r}
+summary(train$classe)
+inTrain <- createDataPartition(y=train$classe,p=0.6,list = FALSE)
+myTrain <- train[inTrain,]
+myTest <- train[-inTrain,]
+```
+## Cleaning Train and Test data . Delete columns with all missing values
+```{r}
+myTrain <- myTrain[,colSums(is.na(myTrain))==0]
+myTest <- myTest[,colSums(is.na(myTest))==0]
+head(colnames(myTrain), 10)
+```
+
+*/ We can delete first 7 variables, because they are irrelevant to our project: “user_name”, “raw_timestamp_part_1”, “raw_timestamp_part_2”, “cvtd_timestamp”, “new_window” and “num_window” (columns 1 to 7). /*
+```{r}
+myTrain <- myTrain[,8:dim(myTrain)[2]]
+myTest <- myTest[,8:dim(myTest)[2]]
+```
+# Plot some data before analysis 
+```{r}
+qplot(accel_arm_x,accel_arm_y,col=classe,data=myTrain)
+
+
+qplot(accel_forearm_x, accel_forearm_y, col=classe, data=myTrain)
+
+
+
+```
+*/Plotting some accelaration data from train data, we can see that the pattern is very similar and hard to distinguish among classes A,B,C,D,E /*
+## Predicting Models
+
+# Apply Classification Tree Model
+
+```{r}
+modelCTree <- rpart(classe ~ ., data = myTrain , method = "class")
+predictionCTree <- predict(modelCTree,myTest, type= "class")
+confusionMatrix(predictionCTree,myTest$classe)
+
+rpart.plot(modelCTree)
+
+```
+# Apply Random Forest Models
+```{r}
+modelRF <- randomForest(classe ~ ., data=myTrain ,method="class")
+predictionRF <- predict(modelRF , myTest , type = "class")
+confusionMatrix(predictionRF,myTest$classe)
+
+```
+# Adding a new column GoodPred to myTest_predindicator to determine predicted value for the test data vs true value in the test data
+```{r}
+myTest_predindicator <- myTest
+myTest_predindicator$GoodPred <- myTest$classe == predictionRF
+
+qplot(accel_arm_x,accel_arm_y,col=GoodPred,data=myTest_predindicator)
+
+```
+# Final Prediction
+```{r}
+ FinaPred <- predict(modelRF,test)
+ table(t(data.frame(FinaPred)))
+ FinaPred
+ 
+```
+
+#Conclusion : Prediction evaluations were based on maximizing the accuracy and minimizing the out-of-sample error. All other available variables after cleaning were used for prediction. Two models were tested using decision tree and random forest algorithms. The model with the highest accuracy were chosen as final model.
+
+# Random Forest Prediction is much more accurate then classification Tree model
+
+
+
+
